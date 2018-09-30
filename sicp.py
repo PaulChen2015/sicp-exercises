@@ -127,15 +127,8 @@ def add_1(n):
 
 def same_parity(x, *y):
     rem = x % 2
-    def same_iter(result, ls):
-        if ls:
-            if ls[0] % 2 == rem:
-                result.append(ls[0])
-            return same_iter(result, ls[1:])
-        else:
-            return result
-
-    return same_iter([x], y)
+    """return [a for a in y if a % 2 == rem]"""
+    return list(filter(lambda x: x % 2 == rem, y))
 
 def is_pow_of_two(n):
     return (n & (n - 1)) == 0
@@ -148,10 +141,7 @@ def deep_reverse(ls):
         deep_reverse(ls[1:])
     
 def mapping(proc, ls):
-    result = []
-    for a in ls:
-        result.append(proc(a))
-    return result
+    return [proc(a) for a in ls]
 
 def deep_reverse2(ls):
     if type(ls) is list:

@@ -214,3 +214,155 @@
                     (my-map (lambda (p) (cons x p))
                         (permutations (remove x seq))))
                 seq)))
+
+(defun memq (item x)
+    (cond ((null x) nil)
+            ((eq item (car x)) x)
+            (t (memq item (cdr x)))))
+
+(defun =number? (exp num)
+    (and (numberp exp) (= exp num)))
+(defun variable? (x) (symbolp x))
+(defun same-variable? (v1 v2)
+    (and (variable? v1) (variable? v2) (eq v1 v2)))
+(defun sum? (x) (and (listp x) (eq (car x) '+)))
+(defun addend (s) (cadr s))
+(defun augend (s) (caddr s))
+(defun product? (x) (and (listp x) (eq (car x) '*)))
+(defun multiplier (p) (cadr p))
+(defun multiplicand (p) (caddr p))
+
+(defun make-sum (a1 a2)
+    (cond ((=number? a1 0) a2)
+            ((=number? a2 0) a1)
+            ((and (numberp a1) (numberp a2))
+                (+ a1 a2))
+            (t (list '+ a1 a2))))
+
+(defun make-product (m1 m2)
+    (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+            ((=number? m1 1) m2)
+            ((=number? m2 1) m1)
+            ((and (numberp m1) (numberp m2)) (* m1 m2))
+            (t (list '* m1 m2))))
+
+(defun deriv (exp var)
+    (cond ((numberp exp) 0)
+            ((variable? exp) (if (same-variable? exp var) 1 0))
+            ((sum? exp) (make-sum (deriv (addend exp) var)
+                                    (deriv (augend exp) var)))
+            ((product? exp)
+                (make-sum
+                    (make-product (multiplier exp)
+                                    (deriv (multiplicand exp) var))
+                    (make-product (deriv (multiplier exp) var)
+                                    (multiplicand exp))))
+            (t (error "unknown expression type: DERIV ~a" exp))))
+
+(defun element-of-set? (x set)
+    (cond ((null set) nil)
+            ((equal x (car set)) t)
+            (t (element-of-set? x (cdr set)))))
+
+(defun adjoin-set (x set)
+    (if (element-of-set? x set)
+        set
+        (cons x set)))
+
+(defun intersection-set (s1 s2)
+    (cond ((or (null s1) (null s2)) nil)
+            ((element-of-set? (car s1) s2)
+                (cons (car s1) (intersection-set (cdr s1) s2)))
+            (t (intersection-set (cdr s1) s2))))
+
+(defun intersection-set-sorted (s1 s2)
+    (if (or (null s1) (null s2))
+        nil
+        (let ((x1 (car s1)) (x2 (car s2)))
+            (cond ((= x1 x2)
+                    (cons x1 (intersection-set-sorted (cdr s1) (cdr s2))))
+                ((< x1 x2)
+                    (intersection-set-sorted (cdr s1) s2))
+                (t (intersection-set-sorted s1 (cdr s2)))))))
+
+(defun entry (tree) (car tree))
+(defun left-tree (tree) (cadr tree))
+(defun right-tree (tree) (caddr tree))
+(defun make-tree (entry left right) (list entry left right))
+
+(defun element-of-treeset (x set)
+    (cond ((null set) nil)
+            ((= x (entry set)) t)
+            ((< x (entry set))
+                (element-of-treeset x (left-tree set)))
+            (t (element-of-treeset x (right-tree set)))))
+
+(defun adjoin-treeset (x set)
+    (cond ((null set) (make-tree x nil nil))
+            ((= x (entry set)) set)
+            ((< x (entry set))
+                (make-tree (entry set)
+                            (adjoin-treeset x (left-tree set))
+                            (right-tree set)))
+            (t (make-tree (entry set)
+                            (left-tree set)
+                            (adjoin-treeset x (right-tree set))))))
+
+(defun make-leaf (symbol weight) (list 'leaf symbol weight))
+(defun leaf? (object) (eq (car object) 'leaf))
+(defun symbol-leaf (x) (cadr x))
+(defun weight-leaf (x) (caddr x))
+
+(defun symbols (tree)
+    (if (leaf? tree)
+        (list (symbol-leaf tree))
+        (caddr tree)))
+
+(defun weight (tree)
+    (if (leaf? tree)
+        (weight-leaf tree)
+        (cadddr tree)))
+
+(defun left-ht (tree) (car tree))
+(defun right-ht (tree) (cadr tree))
+
+(defun make-code-tree (left right)
+    (list left
+            right
+            (append (symbols left) (symbols right))
+            (+ (weight left) (weight right))))
+
+(defun choose-branch (bit branch)
+    (cond ((= bit 0) (left-ht branch))
+            ((= bit 1) (right-ht branch))
+            (t (error "bad bit: CHOOSE-BRANCH ~a" bit))))
+
+(defun decode (bits tree)
+    (defun decode-1 (bits current-branch)
+        (if (null bits)
+            nil
+            (let ((next-branch (choose-branch (car bits) current-branch)))
+                (if (leaf? next-branch)
+                    (cons (symbol-leaf next-branch) (decode-1 (cdr bits) tree))
+                    (decode-1 (cdr bits) next-branch)))))
+    (decode-1 bits tree))
+
+(defun adjoin-ht-set (x set)
+    (cond ((null set) (list x))
+            ((< (weight x) (weight (car set))) (cons x set))
+            (t (cons (car set) (adjoin-ht-set x (cdr set))))))
+
+(defun make-leaf-set (pairs)
+    (if (null pairs)
+        nil
+        (let ((pair (car pairs)))
+            (adjoin-ht-set (make-leaf (car pair) (cadr pair))
+                        (make-leaf-set (cdr pairs))))))
+
+
+(defun pow (base exponent)
+    (defun iter (result count)
+        (if (= count 0)
+            result
+            (iter (* base result) (- count 1))))
+    (iter 1 exponent))

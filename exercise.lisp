@@ -464,16 +464,241 @@
     (cons (list row col) rests))
 
 ;;(defun queens (board-size)
- ;;   (defun queen-cols (k)
-  ;;      (if (= k 0)
-   ;;         (list nil)
-    ;;        (filter
-     ;;           (lambda (positions) (safe? k positions))
-      ;;          (flatmap
-       ;;             (lambda (rest-of-queens)
-        ;;                (my-map (lambda (new-row)
-         ;;                           (adjoin-position
-          ;;                              new-row k rest-of-queens))
-           ;;                     (enumerate-interval 1 board-size)))
-            ;;        (queen-cols (- k 1))))))
-    ;;(queen-cols board-size))
+;;   (defun queen-cols (k)
+;;      (if (= k 0)
+;;         (list nil)
+;;            (filter
+;;                (lambda (positions) (safe? k positions))
+;;               (flatmap
+;;                  (lambda (rest-of-queens)
+;;                        (my-map (lambda (new-row)
+;;                                   (adjoin-position
+;;                                        new-row k rest-of-queens))
+;;                               (enumerate-interval 1 board-size)))
+;;                    (queen-cols (- k 1))))))
+;;    (queen-cols board-size))
+
+
+;; 2.54
+(defun equals? (ls1 ls2)
+    (if (and (null ls1) (null ls2))
+        t
+        (let ((v1 (car ls1))
+                (v2 (car ls2)))
+            (if (and (listp v1) (listp v2))
+                (and (equals? v1 v2) (equals? (cdr ls1) (cdr ls2)))
+                (and (eq v1 v2) (equals? (cdr ls1) (cdr ls2)))))))
+
+
+;; 2.56 2.57
+(defun base (s) (cadr s))
+(defun exponent (s) (caddr s))
+(defun exponentiation? (x) (and (listp x) (eq (car x) '**)))
+(defun make-exponentiation (base exponent)
+    (cond ((=number? exponent 0) 1)
+            ((=number? exponent 1) base)
+            (t (list '** base exponent))))
+
+(defun augend-e (s)
+    (if (> (length (cddr s)) 1)
+        (cons '+ (cddr s))
+        (caddr s)))
+
+(defun multiplicand-e (p)
+    (if (> (length (cddr p)) 1)
+        (cons '* (cddr p))
+        (caddr p)))
+
+(defun deriv-e (exp var)
+    (cond ((numberp exp) 0)
+            ((variable? exp) (if (same-variable? exp var) 1 0))
+            ((sum? exp) (make-sum (deriv-e (addend exp) var)
+                                    (deriv-e (augend-e exp) var)))
+            ((product? exp)
+                (make-sum
+                    (make-product (multiplier exp)
+                                    (deriv-e (multiplicand-e exp) var))
+                    (make-product (deriv-e (multiplier exp) var)
+                                    (multiplicand exp))))
+            ((exponentiation? exp)
+                (make-product 
+                    (exponent exp)
+                    (make-product
+                        (make-exponentiation (base exp)
+                                                (- (exponent exp) 1))
+                        (deriv-e (base exp) var))))
+            (t (error "unknown expression type: DERIV ~a" exp))))
+
+;; 2.58
+(defun sum-infix? (x) (and (listp x) (eq (cadr x) '+)))
+(defun addend-infix (s) (car s))
+(defun augend-infix (s) (caddr s))
+(defun product-infix? (x) (and (listp x) (eq (cadr x) '*)))
+(defun multiplier-infix (p) (car p))
+(defun multiplicand-infix (p) (caddr p))
+
+(defun make-product-infix (m1 m2)
+    (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+            ((=number? m1 1) m2)
+            ((=number? m2 1) m1)
+            ((and (numberp m1) (numberp m2)) (* m1 m2))
+            (t (list m1 '* m2))))
+
+(defun make-sum-infix (a1 a2)
+    (cond ((=number? a1 0) a2)
+            ((=number? a2 0) a1)
+            ((and (numberp a1) (numberp a2))
+                (+ a1 a2))
+            (t (list a1 '+ a2))))
+
+(defun deriv-infix (exp var)
+    (cond ((numberp exp) 0)
+            ((variable? exp) (if (same-variable? exp var) 1 0))
+            ((sum-infix? exp) (make-sum-infix (deriv-infix (addend-infix exp) var)
+                                    (deriv-infix (augend-infix exp) var)))
+            ((product-infix? exp)
+                (make-sum-infix
+                    (make-product-infix (multiplier-infix exp)
+                                    (deriv-infix (multiplicand-infix exp) var))
+                    (make-product-infix (deriv-infix (multiplier-infix exp) var)
+                                    (multiplicand-infix exp))))
+            (t (error "unknown expression type: DERIV ~a" exp))))
+
+;; 2.59
+(defun union-set (s1 s2)
+    (cond ((null s1) s2)
+            ((null s2) s1)
+            ((element-of-set? (car s1) s2) (union-set (cdr s1) s2))
+            (t (cons (car s1) (union-set (cdr s1) s2)))))
+
+;; 2.61
+(defun adjoin-set-sorted (x set)
+    (cond ((null set) (list x))
+            ((= x (car set)) set)
+            ((< x (car set)) (cons x set))
+            (t (cons (car set) (adjoin-set-sorted x (cdr set))))))
+
+;; 2.62
+(defun union-set-sorted (s1 s2)
+    (cond ((null s1) s2)
+            ((null s2) s1)
+            (t
+                (let ((x1 (car s1)) (x2 (car s2)))
+                    (cond ((= x1 x2) (cons x1 (union-set-sorted (cdr s1) (cdr s2))))
+                            ((< x1 x2) (cons x1 (union-set-sorted (cdr s1) s2)))
+                            (t (cons x2 (union-set-sorted s1 (cdr s2)))))))))
+                    
+
+;; 2.63
+(defun tree->list-1 (tree)
+    (if (null tree)
+        nil
+        (append (tree->list-1 (left-tree tree))
+                (cons (entry tree) (tree->list-1 (right-tree tree))))))
+
+(defun tree->list-2 (tree)
+    (defun copy-to-list (tree result)
+        (if (null tree)
+            result
+            (copy-to-list (left-tree tree)
+                            (cons (entry tree)
+                                    (copy-to-list (right-tree tree) result)))))
+    (copy-to-list tree nil))
+
+;; 2.64
+(defun quotient (a b) (floor (/ a b)))
+
+(defun partial-tree (elts n)
+    (if (= n 0)
+        (cons nil elts)
+        (let ((left-size (quotient (- n 1) 2)))
+            (let ((left-result (partial-tree elts left-size)))
+                (let ((left-tree (car left-result))
+                        (non-left-elts (cdr left-result))
+                        (right-size (- n (+ left-size 1))))
+                    (let ((this-entry (car non-left-elts))
+                            (right-result (partial-tree (cdr non-left-elts) right-size)))
+                        (let ((right-tree (car right-result))
+                                (remaining-elts (cdr right-result)))
+                            (cons (make-tree this-entry left-tree right-tree)
+                                    remaining-elts))))))))
+
+(defun list->tree (ls)
+    (car (partial-tree ls (length ls))))
+
+
+;; 2.65
+(defun union-treeset (s1 s2)
+    (list->tree
+        (union-set-sorted
+            (tree->list-2 s1)
+            (tree->list-2 s2))))
+
+
+(defun intersection-treeset (s1 s2)
+    (list->tree
+        (intersection-set-sorted
+            (tree->list-2 s1)
+            (tree->list-2 s2))))
+
+;; 2.66
+(defun lookup-btree (given-key set-of-records)
+    (cond ((null set-of-records) nil)
+            ((= given-key (caar (entry set-of-records))) t)
+            ((< given-key (caar (entry set-of-records)))
+                (lookup-btree given-key (left-tree set-of-records)))
+            (t (lookup-btree given-key (right-tree set-of-records)))))
+            
+;; 2.68
+(defun contain-symbol (symbol tree)
+    (element-of-set? symbol (symbols tree)))
+
+(defun encode-symbol (symbol tree)
+    (if (leaf? tree)
+        nil
+        (let ((lt (left-ht tree))
+                (rt (right-ht tree)))
+            (cond ((contain-symbol symbol lt) (cons 0 (encode-symbol symbol lt)))
+                ((contain-symbol symbol rt) (cons 1 (encode-symbol symbol rt)))
+            (t (error "symbol dose not exists: ENCODE-SYMBOL ~a" symbol))))))
+
+
+(defun encode (message tree)
+    (if (null message)
+        nil
+        (append (encode-symbol (car message) tree)
+                (encode (cdr message) tree))))
+
+;; 2.69
+;; incorrect. such as ((A 3) (B 5) (C 6) (D 6))
+;;(defun successive-merge (leaf-set)
+;;    (defun iter (result set)
+;;        (if (null set)
+;;            result
+;;            (iter
+;;                (make-code-tree
+;;                    result
+;;                    (car set))
+;;                (cdr set))))
+;;    (iter (car leaf-set) (cdr leaf-set)))
+
+(defun successive-merge (leaf-set)
+    (if (< (length leaf-set) 2)
+        (car leaf-set)
+        (successive-merge
+            (adjoin-ht-set
+                (make-code-tree
+                    (car leaf-set)
+                    (cadr leaf-set))
+                (cddr leaf-set)))))
+
+(defun generate-huffman-tree (pairs)
+    (successive-merge (make-leaf-set pairs)))
+
+;; 2.70
+;;(defvar song-tree 
+;;    (generate-huffman-tree
+;;        '((a 2) (get 2) (sha 3) (wah 1) (boom 1) (job 2) (na 16) (yip 9))))
+;;
+;;(defvar bit-song
+;;    (encode '(Get a job Sha na  na na na na na na na Get a job Sha na na na na na na na na Wah yip yip yip yip yip yip yip yip yip Sha boom) song-tree))
