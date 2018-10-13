@@ -1,2 +1,2 @@
 # sicp-exercises
-sicp exercises in sbcl(Steel Bank Common Lisp)
+sicp exercises in sbcl and python
