@@ -14,9 +14,10 @@ def sieve(stream):
 	for m in s:
 		yield m
 		
-		
-def stream_ref(stream, n):
-	while n > 0:
-		next(stream)
-		n -= 1
-	return next(stream)
+
+# 会改变原来的数据
+#def stream_ref(stream, n):
+#	while n > 0:
+#		next(stream)
+#		n -= 1
+#	return next(stream)
